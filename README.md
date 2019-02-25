@@ -1,6 +1,7 @@
 # aws-ec2-connector-cf
 THIS SCRIPT IS PROVIDED TO YOU "AS IS."  TO THE EXTENT PERMITTED BY LAW, QUALYS HEREBY DISCLAIMS ALL WARRANTIES AND LIABILITY FOR THE PROVISION OR USE OF THIS SCRIPT.  IN NO EVENT SHALL THESE SCRIPTS BE DEEMED TO BE CLOUD SERVICES AS PROVIDED BY QUALYS
 
+# Qualys API Access Configuration
 CloudFormation Template to create a Qualys EC2 Connector and associated role and
 managed policy. To run the script you will need to supply credentials for the
 Qualys user name and password for Qualys API Access.
@@ -17,10 +18,10 @@ Parameters:
 This file will activate the Vulnerability Management (VM) module by default. If you want to activate other modules you will need to update line 78 to contain a list of the required modules.
 
 Activate VM for the EC2 Connector example
-"ActivationModule": "VM"
+> "ActivationModule": "VM"
 
 Activate VM and Policy Compliance (PC) example
-"ActivationModule": ["VM", "PC"]
+> "ActivationModule": ["VM", "PC"]
 
 
 This CloudFormation template only activates a EC2 connector with the VM module.
