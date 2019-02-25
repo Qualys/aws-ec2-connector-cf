@@ -13,6 +13,16 @@ Parameters:
   Password:
     Default: {supply_Qualys_user_password}
 
+# Activating Qualys modules
+This file will activate the Vulnerability Management (VM) module by default. If you want to activate other modules you will need to update line 78 to contain a list of the required modules.
+
+Activate VM for the EC2 Connector example
+"ActivationModule": "VM"
+
+Activate VM and Policy Compliance (PC) example
+"ActivationModule": ["VM", "PC"]
+
+
 This CloudFormation template only activates a EC2 connector with the VM module.
 If the PC module is needed, the activated modules section of the Python code
 will need to be modified.
