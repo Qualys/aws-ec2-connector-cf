@@ -23,10 +23,7 @@ Activate VM for the EC2 Connector example
 Activate VM and Policy Compliance (PC) example
 > "ActivationModule": ["VM", "PC"]
 
-
-This CloudFormation template only activates a EC2 connector with the VM module.
-If the PC module is needed, the activated modules section of the Python code
-will need to be modified.
+# Modify the Role or Policy Name
 
 If you want to change the Role or Policy name you can edit these settings in line number 27 and/or 182
 
