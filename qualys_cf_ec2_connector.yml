@@ -2,21 +2,21 @@ AWSTemplateFormatVersion: '2010-09-09'
 Description: Template to automatically setup Qualys AWS EC2 Connector for Asset Scanning
 Metadata:
   Author: "Sean Nicholson"
-  Version: "1.0"
-  Updated: "12/27/2018"
-  Version Comments: "Adapted from Jason Carter's CF template from 5/31/2018"
+  Version: "1.1"
+  Updated: "03/04/2019"
+  Version Comments: "Added Parameter for Managed Policy Name and changed EC2 Connector Name to use AWS Account Alias"
 Parameters:
   UserName:
-    Default: {supply_Qualys_user_name}
+    Default: <ENTER QUALYS ACCOUNT NAME>
     Description: User Authorized to Create a Qualys AWS Connector
     Type: String
   Password:
-    Default: {supply_Qualys_user_password}
+    Default: <ENTER QUALYS API ACOUNT PASSWORD>
     Description: Password of the User Authorized to Create an Qualys AWS Connector
     Type: String
     NoEcho: true
   BaseUrl:
-    Default: https://qualysapi.qg2.apps.qualys.com
+    Default: <ENTER QUALYS API URL>
     Description: Base URL of the Qualys Server
     Type: String
   ExternalId:
@@ -27,6 +27,11 @@ Parameters:
     Default: CF-QualysEC2ConnectorRole
     Description: Name of the Role to Create
     Type: String
+  PolicyName:
+    Default: Qualys-EC2Connector-CrossAccount-Policy
+    Description: Name of the Coss Account Policy to Create
+    Type: String
+
 Resources:
   ConnectorFunction:
     Type: AWS::Lambda::Function
@@ -46,6 +51,7 @@ Resources:
           from botocore.vendored import requests
           import cfnresponse
           import uuid
+          import boto3
 
           def lambda_handler(event,context):
               EXTERNALID = os.getenv('EXTERNALID')
@@ -57,8 +63,19 @@ Resources:
               try:
                 api_endpoint="{}/qps/rest/2.0/create/am/awsassetdataconnector".format(os.getenv('BASEURL'))
                 ACCOUNT_ID = context.invoked_function_arn.split(":")[4]
+                client = boto3.client('iam')
+                paginator = client.get_paginator('list_account_aliases')
+                for response in paginator.paginate():
+                  print(response['AccountAliases'])
+                  print(type(response['AccountAliases'][0]))
+                  accountName = str(response['AccountAliases'][0])
+
+                # account_name_query = client.describe_account(AccountId= ACCOUNT_ID)
+                # accountName = account_name_query['Account']['Name']
                 EXTERNALID = uuid.uuid4().hex if EXTERNALID == "Empty" else EXTERNALID
 
+                # Logging of variable values
+                print("Account Name {}".format(accountName))
                 print("API_ENDPOINT: {}".format(api_endpoint))
                 print("ACCOUNT_ID: {}".format(ACCOUNT_ID))
                 print("EXTERNALID: {}".format(EXTERNALID))
@@ -67,15 +84,18 @@ Resources:
                     "ServiceRequest":{
                       "data":{
                           "AwsAssetDataConnector":{
-                            "name":"CF_EC2_{}".format(ACCOUNT_ID),
-                            "description": "Connector for AWS Account {} - Implemented with CloudFormation".format(ACCOUNT_ID),
+                            "name":"{0}".format(accountName),
+                            "description": "Account Name: {0} - Connector for AWS Account {1} - Implemented with CloudFormation".format(accountName, ACCOUNT_ID),
                             "arn":"arn:aws:iam::{}:role/{}".format(ACCOUNT_ID, ROLENAME),
                             "externalId":"{}".format(EXTERNALID),
                             "allRegions":"true",
                             "disabled":"false",
                             "activation": {
                               "set": {
-                                "ActivationModule": "VM"
+                                "ActivationModule": [
+                                  "VM",
+                                  "PC"
+                                  ]
                               }
                             }
                           }
@@ -85,7 +105,7 @@ Resources:
                 auth=(os.getenv('USERNAME'), os.getenv('PASSWORD'))
 
                 print("DATA: {}".format(data))
-                print("AUTH: {}".format(auth))
+                # print("AUTH: {}".format(auth))
 
                 headers = {"X-Requested-With": "Qualys CloudFormation (python)"}
                 headers['Accept'] = 'application/json'
@@ -155,6 +175,7 @@ Resources:
               - Effect: Allow
                 Action:
                   - iam:CreateRole
+                  - iam:ListAccountAliases
                 Resource: '*'
   QualysConnectorRole:
     DependsOn: QualysEC2RoleCrossAccount
@@ -179,7 +200,7 @@ Resources:
   QualysEC2RoleCrossAccount:
     Type: AWS::IAM::ManagedPolicy
     Properties:
-      ManagedPolicyName: "QualysEC2RoleCrossAccount"
+      ManagedPolicyName: !Ref PolicyName
       PolicyDocument:
         Version: "2012-10-17"
         Statement:

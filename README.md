@@ -14,6 +14,12 @@ Parameters:
   Password:
     Default: {supply_Qualys_user_password}
 
+...
+
+BaseUrl:
+  Default: <ENTER QUALYS API URL>
+
+
 # Activating Qualys modules
 This file will activate the Vulnerability Management (VM) module by default. If you want to activate other modules you will need to update line 78 to contain a list of the required modules.
 
@@ -22,6 +28,11 @@ Activate VM for the EC2 Connector example
 
 Activate VM and Policy Compliance (PC) example
 > "ActivationModule": ["VM", "PC"]
+
+
+# EC2 Connector Name
+The Qualys EC2 Connector will be named based on the AWS Account Alias. This value is found by making a call via IAM List Account Alias.
+
 
 # Modify the Role or Policy Name
 
@@ -32,7 +43,5 @@ RoleName:
 
 ...
 
-QualysEC2RoleCrossAccount:
-  Type: AWS::IAM::ManagedPolicy
-  Properties:
-    ManagedPolicyName: "QualysEC2RoleCrossAccount"
+PolicyName:
+  Default: Qualys-EC2Connector-CrossAccount-Policy
