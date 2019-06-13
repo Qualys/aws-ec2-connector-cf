@@ -2,9 +2,9 @@ AWSTemplateFormatVersion: '2010-09-09'
 Description: Template to automatically setup Qualys AWS EC2 Connector for Asset Scanning
 Metadata:
   Author: "Sean Nicholson"
-  Version: "1.1"
-  Updated: "03/04/2019"
-  Version Comments: "Added Parameter for Managed Policy Name and changed EC2 Connector Name to use AWS Account Alias"
+  Version: "1.3"
+  Updated: "06/13/2019"
+  Version Comments: "Template will create the AssetView and CloudView Connectors"
 Parameters:
   UserName:
     Default: <ENTER QUALYS ACCOUNT NAME>
@@ -16,7 +16,7 @@ Parameters:
     Type: String
     NoEcho: true
   BaseUrl:
-    Default: <ENTER QUALYS API URL>
+    Default:  <ENTER QUALYS API URL>
     Description: Base URL of the Qualys Server
     Type: String
   ExternalId:
@@ -24,13 +24,10 @@ Parameters:
     Description: (Optional) ExternalId to embed in role, one will be generated if empty
     Type: String
   RoleName:
-    Default: CF-QualysEC2ConnectorRole
+    Default: CF-QualysConnectorRole
     Description: Name of the Role to Create
     Type: String
-  PolicyName:
-    Default: Qualys-EC2Connector-CrossAccount-Policy
-    Description: Name of the Coss Account Policy to Create
-    Type: String
+
 
 Resources:
   ConnectorFunction:
@@ -48,15 +45,14 @@ Resources:
           import json
           import traceback
           import os
+          import boto3
           from botocore.vendored import requests
           import cfnresponse
-          import uuid
-          import boto3
+          from random import randint
 
           def lambda_handler(event,context):
               EXTERNALID = os.getenv('EXTERNALID')
               ROLENAME = os.getenv('ROLENAME')
-
               dataConnectorId = 12345678
               qualysAccountId = 12345
 
@@ -66,30 +62,25 @@ Resources:
                 client = boto3.client('iam')
                 paginator = client.get_paginator('list_account_aliases')
                 for response in paginator.paginate():
-                  print(response['AccountAliases'])
-                  print(type(response['AccountAliases'][0]))
-                  accountName = str(response['AccountAliases'][0])
-
-                # account_name_query = client.describe_account(AccountId= ACCOUNT_ID)
-                # accountName = account_name_query['Account']['Name']
-                EXTERNALID = uuid.uuid4().hex if EXTERNALID == "Empty" else EXTERNALID
-
-                # Logging of variable values
-                print("Account Name {}".format(accountName))
-                print("API_ENDPOINT: {}".format(api_endpoint))
-                print("ACCOUNT_ID: {}".format(ACCOUNT_ID))
-                print("EXTERNALID: {}".format(EXTERNALID))
-
+                  if 'AccountAliases' in response:
+                    print(response['AccountAliases'])
+                    print(type(response['AccountAliases'][0]))
+                    accountName = str(response['AccountAliases'][0])
+                    break
+                  else:
+                    accountName = ACCOUNT_ID
+                EXTERNALID = randint(1000000000000000000,999999999999999999999999999999999) if EXTERNALID == "Empty" else EXTERNALID
                 data= {
                     "ServiceRequest":{
                       "data":{
                           "AwsAssetDataConnector":{
                             "name":"{0}".format(accountName),
-                            "description": "Account Name: {0} - Connector for AWS Account {1} - Implemented with CloudFormation".format(accountName, ACCOUNT_ID),
+                            "description": "Account Name: {0} - Connector for AWS Account {1}".format(accountName, ACCOUNT_ID),
                             "arn":"arn:aws:iam::{}:role/{}".format(ACCOUNT_ID, ROLENAME),
                             "externalId":"{}".format(EXTERNALID),
                             "allRegions":"true",
                             "disabled":"false",
+                            "useForCloudView":"true",
                             "activation": {
                               "set": {
                                 "ActivationModule": [
@@ -102,30 +93,24 @@ Resources:
                         }
                       }
                   }
-                auth=(os.getenv('USERNAME'), os.getenv('PASSWORD'))
 
+                auth=(os.getenv('USERNAME'), os.getenv('PASSWORD'))
                 print("DATA: {}".format(data))
                 # print("AUTH: {}".format(auth))
-
                 headers = {"X-Requested-With": "Qualys CloudFormation (python)"}
                 headers['Accept'] = 'application/json'
                 headers['Content-Type'] = 'application/json'
-
                 r = requests.post(api_endpoint, json=data, auth=auth, headers=headers)
                 print("RESPONSE: {}".format(r))
                 data = r.json()
                 print("DATA: {}".format(data))
-
-
                 responseData = {}
                 if 'ServiceResponse' in data:
-
                   if 'responseCode' in data['ServiceResponse']:
                     responseData['responseCode'] = data['ServiceResponse']['responseCode']
                   if 'responseErrorDetails' in data['ServiceResponse']:
                       responseData['responseErrorDetails'] = data['ServiceResponse']['responseErrorDetails']['errorMessage']
                       cfnresponse.send(event, context, cfnresponse.FAILED, responseData)
-
                   if 'data' in data['ServiceResponse']:
                     if 'AwsAssetDataConnector' in data['ServiceResponse']['data'][0]:
                         record = data['ServiceResponse']['data'][0]['AwsAssetDataConnector']
@@ -134,6 +119,7 @@ Resources:
                         if 'qualysAwsAccountId' in record:
                             qualysAccountId = record['qualysAwsAccountId']
               except Exception as e:
+                responseData = {}
                 traceback.print_exc()
                 responseData['responseErrorDetails'] = e
                 cfnresponse.send(event, context, cfnresponse.FAILED, responseData)
@@ -178,7 +164,6 @@ Resources:
                   - iam:ListAccountAliases
                 Resource: '*'
   QualysConnectorRole:
-    DependsOn: QualysEC2RoleCrossAccount
     Type: AWS::IAM::Role
     Properties:
       RoleName: !Ref RoleName
@@ -195,21 +180,9 @@ Resources:
               - sts:AssumeRole
       Path: /
       ManagedPolicyArns:
-        - !Ref QualysEC2RoleCrossAccount
+        - arn:aws:iam::aws:policy/SecurityAudit
 
-  QualysEC2RoleCrossAccount:
-    Type: AWS::IAM::ManagedPolicy
-    Properties:
-      ManagedPolicyName: !Ref PolicyName
-      PolicyDocument:
-        Version: "2012-10-17"
-        Statement:
-        - Action:
-            - ec2:DescribeInstances
-            - ec2:DescribeImages
-            - ec2:DescribeNetworkInterfaces
-          Resource: '*'
-          Effect: Allow
+
 
   CustomResource:
     Type: Custom::CustomResource

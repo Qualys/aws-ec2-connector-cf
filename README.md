@@ -29,19 +29,17 @@ Activate VM for the EC2 Connector example
 Activate VM and Policy Compliance (PC) example
 > "ActivationModule": ["VM", "PC"]
 
+# Qualys CloudView Connector creation
+The CloudView Connector will be created when this CloudFormation Template is run. If you want to disable this feature change line 83 to false
+Line 83 - "useForCloudView":"true"
 
 # EC2 Connector Name
 The Qualys EC2 Connector will be named based on the AWS Account Alias. This value is found by making a call via IAM List Account Alias.
 
 
-# Modify the Role or Policy Name
+# Modify the Role Name
 
-If you want to change the Role or Policy name you can edit these settings in line number 27 and/or 182
+If you want to change the Role name you can edit these settings in line number 27
 
 RoleName:
-  Default: CF-QualysEC2ConnectorRole
-
-...
-
-PolicyName:
-  Default: Qualys-EC2Connector-CrossAccount-Policy
+  Default: CF-QualysConnectorRole
