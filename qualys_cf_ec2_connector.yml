@@ -63,12 +63,15 @@ Resources:
                 paginator = client.get_paginator('list_account_aliases')
                 for response in paginator.paginate():
                   if 'AccountAliases' in response:
-                    print(response['AccountAliases'])
-                    print(type(response['AccountAliases'][0]))
-                    accountName = str(response['AccountAliases'][0])
-                    break
+                    if len(response['AccountAliases']) != 0:
+                      print(response['AccountAliases'])
+                      print(type(response['AccountAliases'][0]))
+                      accountName = str(response['AccountAliases'][0])
+                      break
+                    else:
+                      accountName = ACCOUNT_ID
                   else:
-                    accountName = ACCOUNT_ID
+                      accountName = ACCOUNT_ID
                 EXTERNALID = randint(1000000000000000000,999999999999999999999999999999999) if EXTERNALID == "Empty" else EXTERNALID
                 data= {
                     "ServiceRequest":{
