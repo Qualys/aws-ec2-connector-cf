@@ -23,6 +23,10 @@ Parameters:
     Default: Empty
     Description: (Optional) ExternalId to embed in role, one will be generated if empty
     Type: String
+  CreateCloudViewConn:
+    Default: true
+    Description: (Optional) Create CloudView Connector when creating AV Connector
+    Type: String
   RoleName:
     Default: CF-QualysConnectorRole
     Description: Name of the Role to Create
@@ -40,21 +44,23 @@ Resources:
           USERNAME: !Ref UserName
           PASSWORD: !Ref Password
           ROLENAME: !Ref RoleName
+          CLOUDVIEW: !Ref CreateCloudViewConn
       Code:
         ZipFile: !Sub |
           import json
           import traceback
           import os
           import boto3
-          from botocore.vendored import requests
+          import urllib3
           import cfnresponse
           from random import randint
 
           def lambda_handler(event,context):
               EXTERNALID = os.getenv('EXTERNALID')
               ROLENAME = os.getenv('ROLENAME')
-              dataConnectorId = 12345678
-              qualysAccountId = 12345
+              CLOUDVIEW = os.getenv('CLOUDVIEW')
+              dataConnectorId = 1   #setting variable type - variable set for logging
+              qualysAccountId = 1      #setting variable type - account ID for trust relationship is set by create connector API response
 
               try:
                 api_endpoint="{}/qps/rest/2.0/create/am/awsassetdataconnector".format(os.getenv('BASEURL'))
@@ -83,7 +89,7 @@ Resources:
                             "externalId":"{}".format(EXTERNALID),
                             "allRegions":"true",
                             "disabled":"false",
-                            "useForCloudView":"true",
+                            "useForCloudView": CLOUDVIEW,
                             "activation": {
                               "set": {
                                 "ActivationModule": [
@@ -96,16 +102,19 @@ Resources:
                         }
                       }
                   }
-
-                auth=(os.getenv('USERNAME'), os.getenv('PASSWORD'))
+                encoded_data = json.dumps(data).encode('utf-8')
+                auth=os.getenv('USERNAME')+":"+os.getenv('PASSWORD')
                 print("DATA: {}".format(data))
-                # print("AUTH: {}".format(auth))
-                headers = {"X-Requested-With": "Qualys CloudFormation (python)"}
+                headers = urllib3.make_headers(basic_auth=auth)                     # added basic auth in headers
+                headers['X-Requested-With'] = 'Qualys CloudFormation (python)'
                 headers['Accept'] = 'application/json'
                 headers['Content-Type'] = 'application/json'
-                r = requests.post(api_endpoint, json=data, auth=auth, headers=headers)
-                print("RESPONSE: {}".format(r))
-                data = r.json()
+                http = urllib3.PoolManager()
+                print("API URL = {}".format(api_endpoint))
+                r = http.request('POST', api_endpoint, body=encoded_data, headers=headers, timeout=180)
+                #print("RESPONSE: {}".format(r.data.decode('utf-8')))
+                print("Status: {}".format(r.status))
+                data = json.loads(r.data.decode('utf-8'))
                 print("DATA: {}".format(data))
                 responseData = {}
                 if 'ServiceResponse' in data:
@@ -124,6 +133,7 @@ Resources:
               except Exception as e:
                 responseData = {}
                 traceback.print_exc()
+                print("Response - {}".format(e))
                 responseData['responseErrorDetails'] = e
                 cfnresponse.send(event, context, cfnresponse.FAILED, responseData)
 
@@ -136,7 +146,7 @@ Resources:
       Handler: index.lambda_handler
       Role: !GetAtt 'LambdaExecutionRole.Arn'
       Runtime: python3.6
-      Timeout: '30'
+      Timeout: '600'
   LambdaExecutionRole:
     Type: AWS::IAM::Role
     Properties:
