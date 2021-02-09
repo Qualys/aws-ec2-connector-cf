@@ -19,6 +19,31 @@ Parameters:
 BaseUrl:
   Default: <ENTER QUALYS API URL>
 
+# Specifying connector default tags
+To specify a default tag to all assets inventoried by the connector you can add the tag as part of the json body between line 92 & 93, where tagId is the ID of the tag you want to be applied at the connector level. 
+Single Default Connector Tag Example:
+
+"defaultTags": {
+  "set": {
+    "TagSimple": {
+      "id": "tagId"
+    }
+ }
+},
+
+Multiple Default Connector Tags Example
+
+"defaultTags": {
+  "set": {
+    "TagSimple": {
+      "id": [
+        "tagId-1",
+        "tagId-2",
+        "tagId-3"
+      ]
+    }
+  }
+},
 
 # Activating Qualys modules
 This file will activate the Vulnerability Management (VM) module by default. If you want to activate other modules you will need to update line 78 to contain a list of the required modules.
